@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>童趣報時遊戲 - 報時小達人</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
+        
+        body {
+            font-family: 'Nunito', 'Comic Sans MS', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation; /* 增強平板/手機的點擊體驗 */
+        }
+
+        /* 雲朵動畫 */
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+            opacity: 0.8;
+            animation: float 20s infinite linear;
+            z-index: -1;
+        }
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        .cloud::before { width: 50px; height: 50px; top: -20px; left: 15px; }
+        .cloud::after { width: 70px; height: 70px; top: -30px; left: 45px; }
+        
+        .cloud-1 { width: 120px; height: 40px; top: 10%; left: -150px; animation-duration: 25s; }
+        .cloud-2 { width: 150px; height: 50px; top: 25%; left: -200px; animation-duration: 35s; animation-delay: 5s; transform: scale(0.8); }
+        .cloud-3 { width: 100px; height: 35px; top: 60%; left: -100px; animation-duration: 20s; animation-delay: 10s; transform: scale(1.2); }
+
+        @keyframes float {
+            0% { transform: translateX(-150px); }
+            100% { transform: translateX(120vw); }
+        }
+
+        /* 按鈕彈跳與陰影特效 */
+        .cute-btn {
+            background-color: #fff;
+            border: 4px solid #FF9671;
+            border-radius: 20px;
+            box-shadow: 0 6px 0 #FF9671;
+            transition: all 0.1s ease;
+        }
+        .cute-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #FF9671;
+        }
+        .cute-btn.correct { background-color: #A8E6CF; border-color: #388E3C; box-shadow: 0 6px 0 #388E3C; color: #1B5E20;}
+        .cute-btn.wrong { background-color: #FF8A80; border-color: #C62828; box-shadow: 0 6px 0 #C62828; color: #B71C1C;}
+
+        /* 回饋動畫 */
+        .feedback-pop {
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .digital-clock {
+            font-family: 'Courier New', Courier, monospace;
+            background: #333;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+            border: 8px solid #555;
+            border-radius: 15px;
+            box-shadow: inset 0 0 10px #000;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center relative">
+
+    <!-- 背景裝飾 -->
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+
+    <!-- 遊戲主容器 -->
+    <div class="w-full max-w-lg p-4 z-10 relative">
+        
+        <!-- 首頁 -->
+        <div id="start-screen" class="bg-white/90 backdrop-blur-sm rounded-3xl p-8 text-center shadow-xl border-4 border-yellow-300">
+            <h1 class="text-4xl font-black text-yellow-500 mb-6 drop-shadow-md">⏰ 報時小達人 ⏰</h1>
+            <div class="mb-6 flex justify-center">
+                <svg width="120" height="120" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="white" stroke="#FF9671" stroke-width="5"/>
+                    <circle cx="50" cy="50" r="4" fill="#FF9671"/>
+                    <line x1="50" y1="50" x2="50" y2="25" stroke="#FF9671" stroke-width="4" stroke-linecap="round" transform="rotate(45 50 50)"/>
+                    <line x1="50" y1="50" x2="50" y2="15" stroke="#00C9A7" stroke-width="3" stroke-linecap="round" transform="rotate(180 50 50)"/>
+                </svg>
+            </div>
+            <p class="text-xl text-gray-700 mb-8 font-bold">歡迎來到報時遊戲！<br>我們一共有 100 題挑戰喔！</p>
+            <button onclick="startGame()" class="cute-btn w-full py-4 text-2xl font-bold text-yellow-600 bg-yellow-100 border-yellow-400">
+                ⭐ 開始遊戲 ⭐
+            </button>
+        </div>
+
+        <!-- 遊戲畫面 -->
+        <div id="game-screen" class="hidden flex-col items-center w-full">
+            <!-- 狀態列 -->
+            <div class="w-full flex justify-between items-center bg-white/90 rounded-2xl p-4 mb-6 shadow-md border-2 border-blue-200">
+                <div class="text-xl font-bold text-blue-600">第 <span id="q-num">1</span>/100 題</div>
+                <div class="text-xl font-bold text-pink-500">得分: <span id="score-num">0</span> 🌟</div>
+            </div>
+
+            <!-- 問題區域 -->
+            <div class="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-4 border-blue-300 w-full flex flex-col items-center mb-6 relative">
+                <h2 class="text-2xl font-black text-gray-800 mb-4">現在是幾點？</h2>
+                
+                <!-- 時鐘顯示區 (指針或電子) -->
+                <div id="clock-container" class="w-64 h-64 flex justify-center items-center mb-4">
+                    <!-- JS 動態插入 -->
+                </div>
+
+                <!-- 回饋訊息 (太棒了 / 再試一次) -->
+                <div id="feedback" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 text-4xl font-black text-center whitespace-nowrap">
+                </div>
+            </div>
+
+            <!-- 選項區域：改為顯示4個選項 (2x2 排列) -->
+            <div class="w-full grid grid-cols-2 gap-4" id="options-container">
+                <!-- JS 動態插入按鈕 -->
+            </div>
+        </div>
+
+        <!-- 結束畫面 -->
+        <div id="end-screen" class="hidden bg-white/90 backdrop-blur-sm rounded-3xl p-8 text-center shadow-xl border-4 border-green-400">
+            <h1 class="text-5xl font-black text-green-500 mb-6">🎉 恭喜完成！ 🎉</h1>
+            <p class="text-2xl text-gray-700 mb-4 font-bold">你是報時小天才！</p>
+            <div class="text-4xl font-black text-pink-500 mb-8">總得分: <span id="final-score">0</span> / 100 🌟</div>
+            <button onclick="resetGame()" class="cute-btn w-full py-4 text-2xl font-bold text-green-700 bg-green-100 border-green-500">
+                🔄 再玩一次
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // 遊戲狀態
+        let currentQuestion = 1;
+        let score = 0;
+        const totalQuestions = 100;
+        let isAnswering = false;
+
+        // 題目資料
+        let currentAnswer = null; // { h, m }
+
+        // DOM 元素
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const qNumEl = document.getElementById('q-num');
+        const scoreNumEl = document.getElementById('score-num');
+        const clockContainer = document.getElementById('clock-container');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackEl = document.getElementById('feedback');
+        const finalScoreEl = document.getElementById('final-score');
+
+        // 開始遊戲
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+            currentQuestion = 1;
+            score = 0;
+            updateStatus();
+            nextQuestion();
+        }
+
+        // 重新開始
+        function resetGame() {
+            endScreen.classList.add('hidden');
+            startGame();
+        }
+
+        // 更新狀態列
+        function updateStatus() {
+            qNumEl.innerText = currentQuestion;
+            scoreNumEl.innerText = score;
+        }
+
+        // 產生隨機時間 (時: 1-12, 分: 0-59精確分鐘)
+        function generateRandomTime() {
+            const h = Math.floor(Math.random() * 12) + 1;
+            const m = Math.floor(Math.random() * 60);
+            return { h, m };
+        }
+
+        // 格式化時間文字 (保留以防其他需求)
+        function formatTimeChinese(h, m) {
+            if (m === 0) return `${h}時正`;
+            return `${h}時${m}分`;
+        }
+
+        // 格式化電子鐘格式 (例如: 8:05, 12:30)，用於選項格式 "H:MM" (不用24小時制補零)
+        function formatTimeDigital(h, m) {
+            const padM = m.toString().padStart(2, '0');
+            return `${h}:${padM}`;
+        }
+
+        // 畫指針時鐘 (SVG)，加入 60 個小刻度
+        function drawAnalogClock(h, m) {
+            // 計算角度
+            const hourAngle = (h % 12) * 30 + (m / 60) * 30;
+            const minuteAngle = m * 6;
+            
+            // 產生60個刻度與12個數字
+            let ticksHTML = '';
+            for (let i = 0; i < 60; i++) {
+                const angle = (i * 6 - 90) * (Math.PI / 180);
+                if (i % 5 === 0) {
+                    // 大刻度 (時) - 加粗、加長、加深顏色
+                    const x1 = 50 + 40 * Math.cos(angle);
+                    const y1 = 50 + 40 * Math.sin(angle);
+                    const x2 = 50 + 48 * Math.cos(angle);
+                    const y2 = 50 + 48 * Math.sin(angle);
+                    ticksHTML += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2563EB" stroke-width="3" stroke-linecap="round" />`;
+                    
+                    // 數字 - 字體稍微放大、加深顏色
+                    const num = i === 0 ? 12 : i / 5;
+                    const nx = 50 + 31 * Math.cos(angle);
+                    const ny = 50 + 31 * Math.sin(angle);
+                    ticksHTML += `<text x="${nx}" y="${ny+3.5}" font-family="Nunito, sans-serif" font-size="11" font-weight="900" fill="#1E3A8A" text-anchor="middle" dominant-baseline="middle">${num}</text>`;
+                } else {
+                    // 小刻度 (分) - 讓小格更明顯 (加長、稍微加粗、加深顏色)
+                    const x1 = 50 + 44 * Math.cos(angle);
+                    const y1 = 50 + 44 * Math.sin(angle);
+                    const x2 = 50 + 48 * Math.cos(angle);
+                    const y2 = 50 + 48 * Math.sin(angle);
+                    ticksHTML += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#475569" stroke-width="1.5" stroke-linecap="round" />`;
+                }
+            }
+
+            return `
+                <svg width="100%" height="100%" viewBox="0 0 100 100" class="drop-shadow-lg">
+                    <!-- 外框 -->
+                    <circle cx="50" cy="50" r="48" fill="white" stroke="#60A5FA" stroke-width="4"/>
+                    <!-- 刻度與數字 -->
+                    ${ticksHTML}
+                    <!-- 時針 (粗短) -->
+                    <line x1="50" y1="50" x2="50" y2="28" stroke="#EF4444" stroke-width="4" stroke-linecap="round" transform="rotate(${hourAngle} 50 50)"/>
+                    <!-- 分針 (細長) -->
+                    <line x1="50" y1="50" x2="50" y2="16" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" transform="rotate(${minuteAngle} 50 50)"/>
+                    <!-- 中心點 -->
+                    <circle cx="50" cy="50" r="3" fill="#F59E0B"/>
+                </svg>
+            `;
+        }
+
+        // 畫電子鐘
+        function drawDigitalClock(h, m) {
+            const timeStr = formatTimeDigital(h, m);
+            return `
+                <div class="digital-clock w-full h-32 flex items-center justify-center text-6xl font-black tracking-widest">
+                    ${timeStr}
+                </div>
+            `;
+        }
+
+        // 產生選項 (1個正確, 3個干擾) - 擴展到4個選項
+        function generateOptions(correctTime) {
+            const options = [correctTime];
+            
+            while (options.length < 4) {
+                // 干擾項產生邏輯：更加細微以測試對小刻度的辨識
+                const type = Math.floor(Math.random() * 4);
+                let newH = correctTime.h;
+                let newM = correctTime.m;
+
+                if (type === 0) {
+                    // 改小時 (常犯錯誤：看錯時針)
+                    newH = correctTime.h + (Math.random() > 0.5 ? 1 : -1);
+                    if (newH > 12) newH = 1;
+                    if (newH < 1) newH = 12;
+                } else if (type === 1) {
+                    // 些微的幾分鐘差異 (測驗是否看準小刻度，相差1~3分鐘)
+                    const diff = Math.floor(Math.random() * 3) + 1;
+                    newM = correctTime.m + (Math.random() > 0.5 ? diff : -diff);
+                    if (newM >= 60) newM -= 60;
+                    if (newM < 0) newM += 60;
+                } else if (type === 2) {
+                    // 相差5分鐘 (錯看大刻度)
+                    newM = correctTime.m + (Math.random() > 0.5 ? 5 : -5);
+                    if (newM >= 60) newM -= 60;
+                    if (newM < 0) newM += 60;
+                } else {
+                    // 隨機產生一個完全不一樣的時間
+                    newH = Math.floor(Math.random() * 12) + 1;
+                    newM = Math.floor(Math.random() * 60);
+                }
+
+                // 檢查是否重複
+                const isDuplicate = options.some(opt => opt.h === newH && opt.m === newM);
+                if (!isDuplicate) {
+                    options.push({ h: newH, m: newM });
+                }
+            }
+
+            // 打亂順序
+            return options.sort(() => Math.random() - 0.5);
+        }
+
+        // 顯示下一題
+        function nextQuestion() {
+            isAnswering = false;
+            feedbackEl.classList.add('hidden');
+            feedbackEl.classList.remove('feedback-pop');
+
+            // 產生時間
+            currentAnswer = generateRandomTime();
+            
+            // 隨機決定顯示哪種時鐘 (0: 指針, 1: 電子)
+            const displayMode = Math.random() > 0.5 ? 'analog' : 'digital';
+            
+            if (displayMode === 'analog') {
+                clockContainer.innerHTML = drawAnalogClock(currentAnswer.h, currentAnswer.m);
+            } else {
+                clockContainer.innerHTML = drawDigitalClock(currentAnswer.h, currentAnswer.m);
+            }
+
+            // 產生並顯示選項 (4個)
+            const options = generateOptions(currentAnswer);
+            optionsContainer.innerHTML = '';
+            
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'cute-btn w-full py-4 text-3xl font-black text-gray-700 bg-white tracking-widest';
+                // 使用 H:MM 的形式作為選項
+                btn.innerText = formatTimeDigital(opt.h, opt.m);
+                btn.onclick = () => handleAnswer(btn, opt);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        // 處理回答
+        function handleAnswer(btnElement, selectedTime) {
+            if (isAnswering) return; // 防止重複點擊
+            isAnswering = true;
+
+            const isCorrect = (selectedTime.h === currentAnswer.h && selectedTime.m === currentAnswer.m);
+            
+            feedbackEl.classList.remove('hidden');
+            feedbackEl.classList.add('feedback-pop');
+
+            if (isCorrect) {
+                score++;
+                btnElement.classList.add('correct');
+                feedbackEl.innerHTML = '<div class="bg-white/95 px-6 py-4 rounded-2xl shadow-2xl border-4 border-green-400 text-green-500">🌟 太棒了！</div>';
+            } else {
+                btnElement.classList.add('wrong');
+                // 將正確答案標示出來
+                Array.from(optionsContainer.children).forEach(btn => {
+                    if (btn.innerText === formatTimeDigital(currentAnswer.h, currentAnswer.m)) {
+                        btn.classList.add('correct');
+                    }
+                });
+                feedbackEl.innerHTML = '<div class="bg-white/95 px-6 py-4 rounded-2xl shadow-2xl border-4 border-red-400 text-red-500">💦 再試一次！</div>';
+            }
+
+            updateStatus();
+
+            // 延遲後進入下一題或結束
+            setTimeout(() => {
+                if (currentQuestion >= totalQuestions) {
+                    endGame();
+                } else {
+                    currentQuestion++;
+                    updateStatus();
+                    nextQuestion();
+                }
+            }, 1500); // 1.5秒後切換
+        }
+
+        // 遊戲結束
+        function endGame() {
+            gameScreen.classList.remove('flex');
+            gameScreen.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+            finalScoreEl.innerText = score;
+        }
+    </script>
+</body>
+</html>
